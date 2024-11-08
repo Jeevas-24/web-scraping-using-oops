@@ -8,7 +8,7 @@ import sqlite3
 url = 'http://programmer100.pythonanywhere.com/tours/'
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
-connection = sqlite3.connect('data.db')
+database_path = 'data.db'
 
 
 # Headers are used for specific web server that don't like script programs, so these helps here showing the program as browser
@@ -35,9 +35,9 @@ class Email:
         receiver = 'jeevasathappan2000@gmail.com'
         context = ssl.create_default_context()
         message = f"""\
-    Subject: New Event on board
+Subject: New Event on board
     
-    {raw_message}
+{raw_message}
     """
         with smtplib.SMTP_SSL(host, port, context=context) as server:
             server.login(username, password)
@@ -45,24 +45,27 @@ class Email:
         print('Mail sent')
 
 
-def read(extracted):
-    row = extracted.split(',')
-    row = [r.strip() for r in row]
-    band, city, date = row
-    cursor = connection.cursor()
-    cursor.execute('select * from events where band=? and city=? and date=?',
-                   (band, city, date))
-    rows = cursor.fetchall()
-    print(rows)
-    return rows
+class Database:
+    def __init__(self,database_path):
+        self.connection = sqlite3.connect(database_path)
+    def read(self, extracted):
+        row = extracted.split(',')
+        row = [r.strip() for r in row]
+        band, city, date = row
+        cursor = self.connection.cursor()
+        cursor.execute('select * from events where band=? and city=? and date=?',
+                       (band, city, date))
+        rows = cursor.fetchall()
+        print(rows)
+        return rows
 
 
-def store(extracted):
-    row = extracted.split(',')
-    row = [r.strip() for r in row]
-    cursor = connection.cursor()
-    cursor.execute('insert into events values (?,?,?)', row)
-    connection.commit()
+    def store(self, extracted):
+        row = extracted.split(',')
+        row = [r.strip() for r in row]
+        cursor = self.connection.cursor()
+        cursor.execute('insert into events values (?,?,?)', row)
+        self.connection.commit()
 
 
 if __name__ == '__main__':
@@ -73,9 +76,10 @@ if __name__ == '__main__':
         print(extracted)
 
         if extracted != 'No upcoming tours':
-            rows = read(extracted)
+            db = Database(database_path)
+            rows = db.read(extracted)
             if not rows:
-                store(extracted)
+                db.store(extracted)
                 email = Email()
                 email.send(extracted)
         time.sleep(2)
